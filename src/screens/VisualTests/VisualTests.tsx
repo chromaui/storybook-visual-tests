@@ -16,6 +16,7 @@ import {
   TestStatus,
 } from "../../gql/graphql";
 import { aggregateResult } from "../../utils/aggregateResult";
+import { useProjectId } from "../../utils/useProjectId";
 import { BuildInfo } from "./BuildInfo";
 import { RenderSettings } from "./RenderSettings";
 import { SnapshotComparison } from "./SnapshotComparison";
@@ -29,6 +30,7 @@ const QueryBuild = graphql(/* GraphQL */ `
       ...BuildFields
     }
     project(id: $projectId) @skip(if: $hasBuildId) {
+      name
       lastBuild(branches: [$branch]) {
         ...BuildFields
       }
@@ -112,6 +114,8 @@ const QueryBuild = graphql(/* GraphQL */ `
 `);
 
 interface VisualTestsProps {
+  projectId: string;
+  branch?: string;
   isOutdated?: boolean;
   isRunning?: boolean;
   lastDevBuildId?: string;
@@ -130,15 +134,18 @@ export const VisualTests = ({
   setAccessToken,
   setIsOutdated,
   setIsRunning,
+  projectId,
+  branch,
   storyId,
 }: VisualTestsProps) => {
+  // TODO: Replace hardcoded projectId with useProjectId hook and parameters
   const [{ data, fetching, error }, rerun] = useQuery<BuildQuery, BuildQueryVariables>({
     query: QueryBuild,
     variables: {
       hasBuildId: !!lastDevBuildId,
       buildId: lastDevBuildId || "",
-      projectId: "643d59b4f51c48601c1df552",
-      branch: "test",
+      projectId,
+      branch: branch || "",
     },
   });
 
@@ -149,7 +156,7 @@ export const VisualTests = ({
     }
   }, [isRunning, setIsOutdated, setIsRunning, data]);
 
-  const build = (data?.build || data?.project.lastBuild) as BuildFieldsFragment;
+  const build = (data?.build || data?.project?.lastBuild) as BuildFieldsFragment;
 
   useEffect(() => {
     let interval: any;
@@ -173,6 +180,18 @@ export const VisualTests = ({
             </Row>
           )}
           {fetching && <Loader />}
+          {!build && !fetching && !error && (
+            <Section grow>
+              <Row>
+                <Col>
+                  <Text>
+                    Your project {data.project?.name} does not have any builds yet. Run a build a to
+                    begin.
+                  </Text>
+                </Col>
+              </Row>
+            </Section>
+          )}
         </Section>
         <Section>
           <Bar>
